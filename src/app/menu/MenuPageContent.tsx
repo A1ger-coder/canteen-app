@@ -206,7 +206,7 @@ export default function MenuPageContent() {
 
       {/* Floating cart bar */}
       {totalItems > 0 && (
-        <div className="animate-slide-up glass" style={{
+        <Link href="/cart" className="animate-slide-up glass" style={{
           position: 'fixed',
           bottom: '20px',
           left: '50%',
@@ -218,9 +218,14 @@ export default function MenuPageContent() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          zIndex: 90,
+          zIndex: 999,
           boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
           border: '1px solid rgba(249, 115, 22, 0.2)',
+          textDecoration: 'none',
+          color: 'inherit',
+          WebkitTapHighlightColor: 'transparent',
+          cursor: 'pointer',
+          touchAction: 'manipulation',
         }}>
           <div>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -230,17 +235,16 @@ export default function MenuPageContent() {
               ₹{totalPrice}
             </span>
           </div>
-          <Link href="/cart" className="btn-primary" style={{
+          <span className="btn-primary" style={{
             padding: '10px 28px',
-            textDecoration: 'none',
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
             fontSize: '0.9rem',
           }}>
             View Cart 🛒
-          </Link>
-        </div>
+          </span>
+        </Link>
       )}
     </div>
   );
