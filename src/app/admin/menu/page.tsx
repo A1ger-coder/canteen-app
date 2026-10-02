@@ -30,6 +30,7 @@ export default function AdminMenuPage() {
     description: '',
     price: '',
     category: 'snacks' as Category,
+    image: '',
     isVeg: true,
     isAvailable: true,
     preparationTime: '10',
@@ -60,7 +61,7 @@ export default function AdminMenuPage() {
   const resetForm = () => {
     setFormData({
       name: '', description: '', price: '', category: 'snacks',
-      isVeg: true, isAvailable: true, preparationTime: '10',
+      image: '', isVeg: true, isAvailable: true, preparationTime: '10',
     });
     setEditingItem(null);
     setShowForm(false);
@@ -105,6 +106,7 @@ export default function AdminMenuPage() {
       description: item.description,
       price: String(item.price),
       category: item.category,
+      image: item.image || '',
       isVeg: item.isVeg,
       isAvailable: item.isAvailable,
       preparationTime: String(item.preparationTime),
@@ -231,6 +233,21 @@ export default function AdminMenuPage() {
                 <option value="meals">🍛 Meals</option>
                 <option value="desserts">🍰 Desserts</option>
               </select>
+
+              <div>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'block' }}>
+                  📷 Image URL (paste a link to a food photo)
+                </label>
+                <input className="input" placeholder="https://example.com/food-photo.jpg" value={formData.image}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })} />
+                {formData.image && (
+                  <div style={{ marginTop: '8px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={formData.image} alt="Preview" style={{ width: '100%', height: '120px', objectFit: 'cover' }}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  </div>
+                )}
+              </div>
 
               <div style={{ display: 'flex', gap: '16px' }}>
                 <label style={{

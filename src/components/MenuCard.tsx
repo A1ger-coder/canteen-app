@@ -50,11 +50,35 @@ export default function MenuCard({ item, index }: MenuCardProps) {
         justifyContent: 'center',
         overflow: 'hidden',
       }}>
-        <span style={{ fontSize: '3.5rem', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' }}>
-          {item.category === 'snacks' ? '🍟' :
-           item.category === 'beverages' ? '🥤' :
-           item.category === 'meals' ? '🍛' : '🍰'}
-        </span>
+        {item.image && item.image.startsWith('http') ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={item.image}
+              alt={item.name}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+                (e.target as HTMLImageElement).nextElementSibling!.removeAttribute('style');
+              }}
+            />
+            <span style={{ fontSize: '3.5rem', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))', display: 'none' }}>
+              {item.category === 'snacks' ? '🍟' :
+               item.category === 'beverages' ? '🥤' :
+               item.category === 'meals' ? '🍛' : '🍰'}
+            </span>
+          </>
+        ) : (
+          <span style={{ fontSize: '3.5rem', filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' }}>
+            {item.category === 'snacks' ? '🍟' :
+             item.category === 'beverages' ? '🥤' :
+             item.category === 'meals' ? '🍛' : '🍰'}
+          </span>
+        )}
 
         {/* Unavailable overlay */}
         {!item.isAvailable && (

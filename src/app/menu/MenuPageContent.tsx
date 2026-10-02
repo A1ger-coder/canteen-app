@@ -206,7 +206,7 @@ export default function MenuPageContent() {
 
       {/* Floating cart bar */}
       {totalItems > 0 && (
-        <Link href="/cart" className="animate-slide-up glass" style={{
+        <a href="/cart" style={{
           position: 'fixed',
           bottom: '20px',
           left: '50%',
@@ -218,14 +218,13 @@ export default function MenuPageContent() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          zIndex: 999,
-          boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-          border: '1px solid rgba(249, 115, 22, 0.2)',
+          zIndex: 9999,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+          border: '1px solid rgba(249, 115, 22, 0.3)',
           textDecoration: 'none',
           color: 'inherit',
-          WebkitTapHighlightColor: 'transparent',
+          background: 'rgba(20, 20, 20, 0.95)',
           cursor: 'pointer',
-          touchAction: 'manipulation',
         }}>
           <div>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -235,16 +234,20 @@ export default function MenuPageContent() {
               ₹{totalPrice}
             </span>
           </div>
-          <span className="btn-primary" style={{
+          <span style={{
             padding: '10px 28px',
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
             fontSize: '0.9rem',
+            background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+            color: '#fff',
+            borderRadius: '12px',
+            fontWeight: 700,
           }}>
             View Cart 🛒
           </span>
-        </Link>
+        </a>
       )}
     </div>
   );
