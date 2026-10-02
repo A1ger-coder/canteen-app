@@ -58,6 +58,7 @@ export default function CartPage() {
       const data = await res.json();
 
       if (data.success) {
+        localStorage.setItem('canteen-active-order', data.data.id);
         clearCart();
         router.push(`/order/${data.data.id}`);
       } else {

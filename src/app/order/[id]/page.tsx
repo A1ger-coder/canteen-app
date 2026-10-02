@@ -28,6 +28,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       const data = await res.json();
       if (data.success) {
         setOrder(data.data);
+        // Clear active order if it's been picked up
+        if (data.data.status === 'picked_up') {
+          localStorage.removeItem('canteen-active-order');
+        }
       } else {
         setError('Order not found');
       }
