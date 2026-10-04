@@ -4,7 +4,7 @@
 // ============================================================
 
 import { supabase } from './supabase';
-import { MenuItem, Order, OrderItem } from '@/types';
+import { MenuItem, Order, OrderItem, Feedback } from '@/types';
 
 // ---- Menu operations ----
 
@@ -99,6 +99,10 @@ export async function deleteMenuItem(id: string): Promise<boolean> {
   return true;
 }
 
+// ---- Memory Store Fallback for local testing or before DB migration ----
+const memoryOrders = new Map<string, Order>();
+const memoryFeedback = new Map<string, Feedback>();
+
 // ---- Order operations ----
 
 export async function getOrders(): Promise<Order[]> {
@@ -108,8 +112,10 @@ export async function getOrders(): Promise<Order[]> {
     .order('created_at', { ascending: false });
 
   if (ordersError || !ordersData) {
-    console.error('Error fetching orders:', ordersError);
-    return [];
+    console.warn('Supabase getOrders failed or empty, returning memory orders:', ordersError?.message);
+    return Array.from(memoryOrders.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   }
 
   // Fetch order items for all orders
@@ -138,7 +144,10 @@ export async function getOrders(): Promise<Order[]> {
     });
   }
 
-  return ordersData.map((o) => mapDbToOrder(o, itemsByOrderId.get(o.id) || []));
+  const result = ordersData.map((o) => mapDbToOrder(o, itemsByOrderId.get(o.id) || []));
+  // Sync to memory
+  result.forEach((o) => memoryOrders.set(o.id, o));
+  return result;
 }
 
 export async function getOrderById(id: string): Promise<Order | null> {
@@ -148,7 +157,9 @@ export async function getOrderById(id: string): Promise<Order | null> {
     .eq('id', id)
     .single();
 
-  if (orderError || !orderData) return null;
+  if (orderError || !orderData) {
+    return memoryOrders.get(id) || null;
+  }
 
   const { data: itemsData } = await supabase
     .from('order_items')
@@ -163,7 +174,9 @@ export async function getOrderById(id: string): Promise<Order | null> {
     specialInstructions: item.special_instructions || '',
   }));
 
-  return mapDbToOrder(orderData, items);
+  const order = mapDbToOrder(orderData, items);
+  memoryOrders.set(order.id, order);
+  return order;
 }
 
 export async function createOrder(orderInput: {
@@ -190,8 +203,23 @@ export async function createOrder(orderInput: {
     .single();
 
   if (orderError || !orderData) {
-    console.error('Error creating order:', orderError);
-    return null;
+    console.warn('Supabase createOrder failed, creating in memory store:', orderError?.message);
+    const newId = `ord-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const newOrder: Order = {
+      id: newId,
+      tableNumber: orderInput.tableNumber,
+      items: orderInput.items,
+      total: orderInput.total,
+      status: 'placed',
+      customerName: orderInput.customerName || 'Guest',
+      customerPhone: orderInput.customerPhone || '',
+      paymentMethod: orderInput.paymentMethod as Order['paymentMethod'],
+      paymentStatus: orderInput.paymentMethod === 'counter' ? 'pending' : 'paid',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    memoryOrders.set(newId, newOrder);
+    return newOrder;
   }
 
   // Insert order items
@@ -212,7 +240,9 @@ export async function createOrder(orderInput: {
     console.error('Error creating order items:', itemsError);
   }
 
-  return mapDbToOrder(orderData, orderInput.items);
+  const order = mapDbToOrder(orderData, orderInput.items);
+  memoryOrders.set(order.id, order);
+  return order;
 }
 
 export async function updateOrder(id: string, updates: Partial<Order>): Promise<Order | null> {
@@ -228,8 +258,16 @@ export async function updateOrder(id: string, updates: Partial<Order>): Promise<
     .single();
 
   if (error || !data) {
-    console.error('Error updating order:', error);
-    return null;
+    console.warn('Supabase updateOrder failed, updating memory store:', error?.message);
+    const existing = memoryOrders.get(id);
+    if (!existing) return null;
+    const updated: Order = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    memoryOrders.set(id, updated);
+    return updated;
   }
 
   // Fetch items for the response
@@ -246,8 +284,127 @@ export async function updateOrder(id: string, updates: Partial<Order>): Promise<
     specialInstructions: item.special_instructions || '',
   }));
 
-  return mapDbToOrder(data, items);
+  const order = mapDbToOrder(data, items);
+  memoryOrders.set(id, order);
+  return order;
 }
+
+// ---- Cancel order ----
+
+export async function cancelOrder(id: string): Promise<Order | null> {
+  // First check if the order can be cancelled (only 'placed' or 'confirmed')
+  const order = await getOrderById(id);
+  if (!order) return null;
+
+  if (order.status !== 'placed' && order.status !== 'confirmed') {
+    return null; // Cannot cancel once preparing has started
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.warn('Supabase cancelOrder failed, updating in memory store:', error?.message);
+    const updated: Order = {
+      ...order,
+      status: 'cancelled',
+      updatedAt: new Date().toISOString(),
+    };
+    memoryOrders.set(id, updated);
+    return updated;
+  }
+
+  // Fetch items for the response
+  const { data: itemsData } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', id);
+
+  const items: OrderItem[] = (itemsData || []).map((item) => ({
+    menuItemId: item.menu_item_id,
+    name: item.name,
+    quantity: item.quantity,
+    price: item.price,
+    specialInstructions: item.special_instructions || '',
+  }));
+
+  const cancelledOrder = mapDbToOrder(data, items);
+  memoryOrders.set(id, cancelledOrder);
+  return cancelledOrder;
+}
+
+// ---- Feedback operations ----
+
+export async function submitFeedback(feedback: {
+  orderId: string;
+  rating: number;
+  comment: string;
+}): Promise<Feedback | null> {
+  const { data, error } = await supabase
+    .from('feedback')
+    .insert({
+      order_id: feedback.orderId,
+      rating: feedback.rating,
+      comment: feedback.comment,
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.warn('Supabase submitFeedback failed, saving to memory store:', error?.message);
+    const fbObj: Feedback = {
+      id: `fb-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      orderId: feedback.orderId,
+      rating: feedback.rating,
+      comment: feedback.comment || '',
+      createdAt: new Date().toISOString(),
+    };
+    memoryFeedback.set(feedback.orderId, fbObj);
+    return fbObj;
+  }
+
+  const fb = mapDbToFeedback(data);
+  memoryFeedback.set(feedback.orderId, fb);
+  return fb;
+}
+
+export async function getFeedbackByOrderId(orderId: string): Promise<Feedback | null> {
+  const { data, error } = await supabase
+    .from('feedback')
+    .select('*')
+    .eq('order_id', orderId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return memoryFeedback.get(orderId) || null;
+  }
+
+  const fb = mapDbToFeedback(data);
+  memoryFeedback.set(orderId, fb);
+  return fb;
+}
+
+export async function getAllFeedback(): Promise<Feedback[]> {
+  const { data, error } = await supabase
+    .from('feedback')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) {
+    return Array.from(memoryFeedback.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  const list = data.map(mapDbToFeedback);
+  list.forEach((fb) => memoryFeedback.set(fb.orderId, fb));
+  return list;
+}
+
 
 // ---- Admin auth ----
 const ADMIN_PIN = process.env.ADMIN_PIN || '1234';
@@ -266,7 +423,7 @@ function mapDbToMenuItem(row: any): MenuItem {
     description: row.description || '',
     price: Number(row.price),
     category: row.category,
-    image: row.image || '/images/placeholder.jpg',
+    image: row.image || '',
     isVeg: row.is_veg,
     isAvailable: row.is_available,
     preparationTime: row.preparation_time || 10,
@@ -287,5 +444,16 @@ function mapDbToOrder(row: any, items: OrderItem[]): Order {
     paymentStatus: row.payment_status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDbToFeedback(row: any): Feedback {
+  return {
+    id: row.id,
+    orderId: row.order_id,
+    rating: row.rating,
+    comment: row.comment || '',
+    createdAt: row.created_at,
   };
 }

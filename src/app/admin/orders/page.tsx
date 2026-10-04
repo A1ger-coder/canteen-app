@@ -16,6 +16,7 @@ const statusOptions: { key: OrderStatus | 'all'; label: string }[] = [
   { key: 'preparing', label: '👨‍🍳 Preparing' },
   { key: 'ready', label: '🔔 Ready' },
   { key: 'picked_up', label: '🎉 Picked Up' },
+  { key: 'cancelled', label: '🚫 Cancelled' },
 ];
 
 const nextStatus: Record<string, string> = {
@@ -64,6 +65,18 @@ export default function AdminOrdersPage() {
       fetchOrders();
     } catch (error) {
       console.error('Error updating order:', error);
+    }
+  };
+
+  const cancelOrderAdmin = async (orderId: string) => {
+    if (!confirm('Are you sure you want to cancel this order?')) return;
+    try {
+      await fetch(`/api/orders/${orderId}/cancel`, {
+        method: 'POST',
+      });
+      fetchOrders();
+    } catch (error) {
+      console.error('Error cancelling order:', error);
     }
   };
 
@@ -129,7 +142,8 @@ export default function AdminOrdersPage() {
                 order.status === 'placed' ? '#6366f1' :
                 order.status === 'confirmed' ? '#3b82f6' :
                 order.status === 'preparing' ? '#f59e0b' :
-                order.status === 'ready' ? '#10b981' : '#6b7280'
+                order.status === 'ready' ? '#10b981' :
+                order.status === 'cancelled' ? '#ef4444' : '#6b7280'
               }`,
             }}>
               <div style={{
@@ -142,7 +156,10 @@ export default function AdminOrdersPage() {
                     <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 700, fontSize: '1rem' }}>
                       #{order.id.slice(0, 8)}
                     </span>
-                    <span className={`status-badge status-${order.status}`}>
+                    <span className={`status-badge status-${order.status}`} style={{
+                      background: order.status === 'cancelled' ? 'rgba(239, 68, 68, 0.15)' : undefined,
+                      color: order.status === 'cancelled' ? '#ef4444' : undefined,
+                    }}>
                       {order.status.replace('_', ' ')}
                     </span>
                     {order.tableNumber > 0 && (
@@ -167,10 +184,35 @@ export default function AdminOrdersPage() {
                 </div>
 
                 {/* Price + Action */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.1rem', fontFamily: 'Outfit, sans-serif' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{
+                    fontWeight: 800,
+                    color: order.status === 'cancelled' ? 'var(--text-muted)' : 'var(--primary)',
+                    fontSize: '1.1rem',
+                    fontFamily: 'Outfit, sans-serif',
+                    textDecoration: order.status === 'cancelled' ? 'line-through' : 'none',
+                  }}>
                     ₹{order.total}
                   </span>
+
+                  {(order.status === 'placed' || order.status === 'confirmed') && (
+                    <button
+                      onClick={() => cancelOrderAdmin(order.id)}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.75rem',
+                        borderRadius: '8px',
+                        border: '1px solid #ef4444',
+                        background: 'transparent',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  )}
+
                   {nextStatus[order.status] && (
                     <button
                       className="btn-primary"
@@ -189,3 +231,4 @@ export default function AdminOrdersPage() {
     </div>
   );
 }
+

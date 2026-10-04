@@ -1,17 +1,18 @@
 'use client';
 
 // ============================================================
-// Admin Dashboard — overview with live orders and stats
+// Admin Dashboard — overview with live orders, stats, and feedback
 // ============================================================
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Order } from '@/types';
+import { Order, Feedback } from '@/types';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Auth check
@@ -22,22 +23,28 @@ export default function AdminDashboard() {
     }
   }, [router]);
 
-  // Fetch orders
-  const fetchOrders = async () => {
+  // Fetch orders and feedback
+  const fetchData = async () => {
     try {
-      const res = await fetch('/api/orders');
-      const data = await res.json();
-      if (data.success) setOrders(data.data);
+      const [ordersRes, feedbackRes] = await Promise.all([
+        fetch('/api/orders'),
+        fetch('/api/feedback'),
+      ]);
+      const ordersData = await ordersRes.json();
+      const feedbackData = await feedbackRes.json();
+
+      if (ordersData.success) setOrders(ordersData.data);
+      if (feedbackData.success) setFeedbacks(feedbackData.data);
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error('Error fetching admin data:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 5000);
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -46,8 +53,14 @@ export default function AdminDashboard() {
     return orderDate === new Date().toDateString();
   });
 
-  const activeOrders = orders.filter((o) => !['picked_up'].includes(o.status));
-  const todayRevenue = todayOrders.reduce((sum, o) => sum + o.total, 0);
+  const activeOrders = orders.filter((o) => !['picked_up', 'cancelled'].includes(o.status));
+  const todayRevenue = todayOrders
+    .filter((o) => o.status !== 'cancelled')
+    .reduce((sum, o) => sum + o.total, 0);
+
+  const avgRating = feedbacks.length > 0
+    ? (feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length).toFixed(1)
+    : 'N/A';
 
   const updateOrderStatus = async (orderId: string, status: string) => {
     try {
@@ -56,7 +69,7 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
-      fetchOrders();
+      fetchData();
     } catch (error) {
       console.error('Error updating order:', error);
     }
@@ -75,6 +88,7 @@ export default function AdminDashboard() {
     preparing: '👨‍🍳 Preparing',
     ready: '🔔 Ready',
     picked_up: '🎉 Picked Up',
+    cancelled: '🚫 Cancelled',
   };
 
   const handleLogout = () => {
@@ -143,6 +157,13 @@ export default function AdminDashboard() {
           }}>
             🔲 QR Codes
           </Link>
+          <Link href="/admin/feedback" className="btn-secondary" style={{
+            textDecoration: 'none',
+            fontSize: '0.85rem',
+            padding: '10px 18px',
+          }}>
+            💬 Feedback
+          </Link>
           <button onClick={handleLogout} className="btn-ghost" style={{ fontSize: '0.85rem' }}>
             🚪 Logout
           </button>
@@ -160,7 +181,7 @@ export default function AdminDashboard() {
           { label: 'Active Orders', value: activeOrders.length, icon: '🔥', color: '#f59e0b' },
           { label: "Today's Orders", value: todayOrders.length, icon: '📦', color: '#6366f1' },
           { label: "Today's Revenue", value: `₹${todayRevenue}`, icon: '💰', color: '#10b981' },
-          { label: 'Total Orders', value: orders.length, icon: '📊', color: '#3b82f6' },
+          { label: 'Avg Rating', value: avgRating === 'N/A' ? 'N/A' : `⭐ ${avgRating}`, icon: '🌟', color: '#ec4899' },
         ].map((stat, i) => (
           <div key={i} className="card" style={{
             padding: '24px',
@@ -211,6 +232,7 @@ export default function AdminDashboard() {
         <div className="card" style={{
           padding: '48px 20px',
           textAlign: 'center',
+          marginBottom: '32px',
         }}>
           <div style={{ fontSize: '3rem', marginBottom: '12px' }}>😴</div>
           <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>No active orders right now</p>
@@ -220,6 +242,7 @@ export default function AdminDashboard() {
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
           gap: '16px',
+          marginBottom: '32px',
         }}>
           {activeOrders.map((order, i) => (
             <div key={order.id} className="card" style={{
@@ -304,6 +327,53 @@ export default function AdminDashboard() {
           ))}
         </div>
       )}
+
+      {/* Customer Feedback Section */}
+      <h2 style={{
+        fontFamily: 'Outfit, sans-serif',
+        fontSize: '1.3rem',
+        fontWeight: 700,
+        marginBottom: '16px',
+      }}>
+        💬 Customer Feedback & Reviews ({feedbacks.length})
+      </h2>
+
+      {feedbacks.length === 0 ? (
+        <div className="card" style={{ padding: '36px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>💬</div>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No customer feedback received yet</p>
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '16px',
+        }}>
+          {feedbacks.map((fb) => (
+            <div key={fb.id} className="card" style={{ padding: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '1.1rem' }}>
+                  {'⭐'.repeat(fb.rating)}
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Order #{fb.orderId.slice(0, 8)}
+                </span>
+              </div>
+              {fb.comment ? (
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                  &quot;{fb.comment}&quot;
+                </p>
+              ) : (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No written comment provided.</p>
+              )}
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '10px', textAlign: 'right' }}>
+                {new Date(fb.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+

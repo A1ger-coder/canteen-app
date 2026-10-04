@@ -16,7 +16,7 @@ export interface MenuItem {
   preparationTime: number; // in minutes
 }
 
-export type OrderStatus = 'placed' | 'confirmed' | 'preparing' | 'ready' | 'picked_up';
+export type OrderStatus = 'placed' | 'confirmed' | 'preparing' | 'ready' | 'picked_up' | 'cancelled';
 
 export type PaymentMethod = 'upi' | 'card' | 'counter';
 
@@ -53,6 +53,14 @@ export interface CartItem {
 export interface CartState {
   items: CartItem[];
   tableNumber: number | null;
+}
+
+export interface Feedback {
+  id: string;
+  orderId: string;
+  rating: number; // 1–5
+  comment: string;
+  createdAt: string;
 }
 
 export interface AdminUser {

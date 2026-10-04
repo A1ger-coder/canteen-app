@@ -352,6 +352,10 @@ body {
   background: rgba(107, 114, 128, 0.15);
   color: #9ca3af;
 }
+.status-cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
 
 /* ---- Category pills ---- */
 .category-pill {

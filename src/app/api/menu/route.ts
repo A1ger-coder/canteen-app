@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       description: body.description || '',
       price: Number(body.price),
       category: body.category || 'snacks',
-      image: body.image || '/images/placeholder.jpg',
+      image: body.image || '',
       isVeg: body.isVeg ?? true,
       isAvailable: body.isAvailable ?? true,
       preparationTime: body.preparationTime || 10,

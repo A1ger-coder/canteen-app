@@ -294,14 +294,25 @@ export default function AdminMenuPage() {
             animation: `fadeIn 0.3s ease-out ${i * 0.03}s both`,
             opacity: item.isAvailable ? 1 : 0.5,
           }}>
-            {/* Icon */}
+            {/* Thumbnail */}
             <div style={{
-              width: '44px', height: '44px', borderRadius: '10px',
+              width: '50px', height: '50px', borderRadius: '10px',
               background: `linear-gradient(135deg, hsl(${(i * 50) % 360}, 50%, 15%), hsl(${(i * 50 + 40) % 360}, 40%, 10%))`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '1.3rem', flexShrink: 0,
+              fontSize: '1.3rem', flexShrink: 0, overflow: 'hidden',
             }}>
-              {categoryEmoji[item.category]}
+              {item.image && item.image.startsWith('http') ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.image} alt={item.name} style={{
+                  width: '100%', height: '100%', objectFit: 'cover',
+                }} onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  (e.target as HTMLImageElement).nextElementSibling!.removeAttribute('style');
+                }} />
+              ) : null}
+              <span style={item.image && item.image.startsWith('http') ? { display: 'none' } : {}}>
+                {categoryEmoji[item.category]}
+              </span>
             </div>
 
             {/* Info */}
